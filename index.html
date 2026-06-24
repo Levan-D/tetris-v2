@@ -1,41 +1,19 @@
-<!-- @format -->
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="stylesheet.css" />
-    <script
-      src="https://kit.fontawesome.com/f2c725910d.js"
-      crossorigin="anonymous"
-    ></script>
-    <script defer src="script.js"></script>
-    <link rel="icon" href="icon128.png" />
+    <link rel="icon" href="/icon128.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Changa:wght@700&family=Press+Start+2P&display=swap"
       rel="stylesheet"
     />
     <title>Tetris: The Revenge of the Tetro</title>
   </head>
-
   <body>
-    <div class="container">
-      <div class="grid"></div>
-      <div class="mainMenuContainer"></div>
-      <div class="leContainer">
-        <div class="mini-grid"></div>
-        <div class="scoreScore">SCORE:<span id="score">00</span></div>
-        <div class="startBtn">START</div>
-        <div class="soundSettings">
-          <div class="unmuteMusic">M</div>
-          <div class="muteMusic">
-            M
-            <div class="line"></div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

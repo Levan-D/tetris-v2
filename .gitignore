@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+*.log
+
+# Claude Code personal settings (keep your local permission rules out of git)
+.claude/settings.local.json
+.claude

@@ -1,35 +1,72 @@
-# Tetris Game
+# Tetris: The Revenge of the Tetro
 
 ![Tetris Game Screenshot](./screenshot.png)
 
-This repository contains a simple and fun implementation of the classic Tetris game using JavaScript, HTML, and CSS. It aims to provide a nostalgic gaming experience to users while demonstrating clean code and good programming practices.
+A faithful rebuild of the classic vanilla-JS Tetris game in a modern front-end
+stack. Same gameplay, scoring, difficulty ramp, leaderboard and snarky game-over
+messages — now built with components and typed state.
 
-## Installation
+## Tech stack
 
-To install and run this game locally, follow these steps:
+- **React 19** + **TypeScript** (strict)
+- **Vite** for dev/build
+- **Tailwind CSS v4** for styling
+- **Zustand** for game state
 
-1. Clone this repository:
+## Getting started
 
-`
-git clone https://github.com/Levan-D/tetris.git
-`
+```bash
+npm install      # install dependencies
+npm run dev      # start the dev server (http://localhost:5173)
+npm run build    # type-check and build for production
+npm run preview  # preview the production build
+```
 
-2. Change into the project directory:
+## How to play
 
-`
-cd tetris
-`
+Use the arrow keys:
 
-3. Open the `index.html` file in your preferred web browser.
+- **←** move left
+- **→** move right
+- **↓** soft drop
+- **↑** rotate
 
-4. Optionally, you can add music to the game by creating a music folder in the source folder and loading mp3's into it with a file name format of track_[index].mp3 
+Clear full rows to score. The board speeds up as your score climbs. Your top 5
+scores are saved in the browser via `localStorage`.
 
-## Usage
+## Project structure
 
-1. Use the arrow keys to move the tetromino pieces.
-    - Left arrow: move the piece to the left
-    - Right arrow: move the piece to the right
-    - Down arrow: move the piece down (soft drop)
-    - Up arrow: rotate the piece clockwise
+```
+src/
+  game/
+    constants.ts   # board size, tetrominoes, colours, scoring tables, remarks
+    types.ts       # shared types
+    logic.ts       # pure helpers (collision, line scoring, wall-kick, storage)
+  store/
+    gameStore.ts   # Zustand store — all game state and actions
+  hooks/
+    useGameLoop.ts # the automatic drop timer
+    useKeyboard.ts # arrow-key controls
+  components/
+    Board.tsx
+    NextPiece.tsx
+    Scoreboard.tsx
+    GameOverMenu.tsx
+  App.tsx
+  main.tsx
+  index.css        # Tailwind import + font setup
+```
 
-3. Clear lines by filling them with
+## Notes
+
+- This is the original game's **5-piece** set (L, Z, T, O, I) — no J or S — kept
+  faithful to the source.
+- **Audio was intentionally left out** of this rebuild (the original referenced
+  `music/` and `sounds/` folders that were not part of the repo). To add it back,
+  drop the mp3s into a `public/` subfolder and wire up `new Audio(...)` playback,
+  e.g. in the store's `start`/`tick` actions.
+
+## Credits
+
+Rebuilt from the original vanilla JS/HTML/CSS version by
+[Levan-D](https://github.com/Levan-D/tetris).
