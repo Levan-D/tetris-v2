@@ -4,6 +4,18 @@ import { useGameStore } from '../store/gameStore'
 const DAS = 170
 const ARR = 50
 
+// WASD maps onto the same actions as the arrow keys
+const WASD_MAP: Record<string, string> = {
+  a: 'ArrowLeft',
+  d: 'ArrowRight',
+  s: 'ArrowDown',
+  w: 'ArrowUp',
+}
+
+function normalizeKey(key: string): string {
+  return WASD_MAP[key.toLowerCase()] ?? key
+}
+
 export function useKeyboard(): void {
   useEffect(() => {
     let dasTimer: ReturnType<typeof setTimeout> | null = null
@@ -20,7 +32,7 @@ export function useKeyboard(): void {
       if (!s.isPlaying || s.isPaused || s.isHardDropping) return
       if (key === 'ArrowLeft') s.moveLeft()
       else if (key === 'ArrowRight') s.moveRight()
-      else if (key === 'ArrowDown') s.tick()
+      else if (key === 'ArrowDown') s.softDrop()
     }
 
     const startDAS = (key: string) => {
@@ -45,12 +57,14 @@ export function useKeyboard(): void {
 
       if (!s.isPlaying || s.isPaused) return
 
-      switch (e.key) {
+      const key = normalizeKey(e.key)
+
+      switch (key) {
         case 'ArrowLeft':
         case 'ArrowRight':
         case 'ArrowDown':
           e.preventDefault()
-          startDAS(e.key)
+          startDAS(key)
           break
         case ' ':
           e.preventDefault()
@@ -66,8 +80,10 @@ export function useKeyboard(): void {
     }
 
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        if (heldKey === e.key) {
+      const key = normalizeKey(e.key)
+
+      if (key === 'ArrowLeft' || key === 'ArrowRight' || key === 'ArrowDown') {
+        if (heldKey === key) {
           clearTimers()
           heldKey = null
         }
@@ -75,7 +91,7 @@ export function useKeyboard(): void {
 
       const s = useGameStore.getState()
       if (!s.isPlaying || s.isPaused) return
-      if (e.key === 'ArrowUp') {
+      if (key === 'ArrowUp') {
         e.preventDefault()
         s.rotate()
       }

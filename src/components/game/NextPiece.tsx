@@ -1,5 +1,5 @@
-import { COLORS } from '../game/constants'
-import { useGameStore } from '../store/gameStore'
+import { COLORS } from '../../game/constants'
+import { useGameStore } from '../../store/gameStore'
 import PiecePreview from './PiecePreview'
 
 export default function NextPiece() {

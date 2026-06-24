@@ -1,0 +1,7 @@
+export { default as Background } from './Background'
+export { default as Board } from './Board'
+export { default as GameOverMenu } from './GameOverMenu'
+export { default as HoldPiece } from './HoldPiece'
+export { default as NextPiece } from './NextPiece'
+export { default as PiecePreview } from './PiecePreview'
+export { default as Scoreboard } from './Scoreboard'

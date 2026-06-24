@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import { BOMB_COLOR, COLORS, LIGHTNING_COLOR, REMARKS, TETROMINOES, VISIBLE_CELLS, WIDTH } from '../game/constants'
 import type { ActivePiece, Cell, Special } from '../game/types'
 import {
@@ -10,14 +9,22 @@ import {
   collides,
   drawFromBag,
   emptyGrid,
+  ghostPosition,
+  isTSpin,
   kickIntoBounds,
   levelFor,
-  loadScores,
   randomColorIndex,
   randomSpecials,
-  saveScore,
   shuffledBag,
 } from '../game/logic'
+import { sounds } from '../audio/sounds'
+import { bombParticles, lightningParticles, lineClearParticles, tSpinParticles } from '../effects/particles'
+import { useSettingsStore } from './settingsStore'
+import type { GameMode } from './settingsStore'
+import { clearGameSnapshot, loadGameSnapshot, loadModeScores, saveGameSnapshot, saveModeScore } from './persistence'
+
+// Clean up old persist key from previous version
+localStorage.removeItem('tetris-session')
 
 const CLEAR_DELAY = 250
 const NOTIF_DURATION = 1500
@@ -26,6 +33,9 @@ const COMBO_BONUS = 50
 const PERFECT_CLEAR_BONUS = 1000
 const BOMB_POINTS = 50
 const LIGHTNING_POINTS = 50
+const LOCK_DELAY = 200
+const MAX_LOCK_RESETS = 4
+const TSPIN_SCORES = [400, 800, 1200, 1600]
 
 interface Notification {
   id: number
@@ -61,19 +71,30 @@ interface GameStore {
   leaderboard: number[]
   remark: string | null
   notifications: Notification[]
+  lockDeadline: number | null
+  lockMoves: number
+  lastMoveWasRotation: boolean
+  showMenu: boolean
+  currentMode: GameMode
 
   start: () => void
+  continueGame: () => void
   tick: () => void
   moveLeft: () => void
   moveRight: () => void
   rotate: () => void
   hardDrop: () => void
+  softDrop: () => void
   togglePause: () => void
   hold: () => void
   notify: (text: string, color: string) => void
+  goToMenu: () => void
 }
 
 let notifCounter = 0
+
+function sfx() { return useSettingsStore.getState().soundEnabled }
+function pfx() { return useSettingsStore.getState().particlesEnabled }
 
 function spawn(shape: number, specials: Special[]): ActivePiece {
   return { shape, rotation: 0, position: 4, specials }
@@ -133,7 +154,18 @@ function initPieces() {
   }
 }
 
-export const useGameStore = create<GameStore>()(persist((set, get) => {
+function extractSaveData(s: GameStore) {
+  return {
+    grid: s.grid, active: s.active, activeColor: s.activeColor,
+    nextShape: s.nextShape, nextSpecials: s.nextSpecials, nextColor: s.nextColor,
+    heldShape: s.heldShape, heldSpecials: s.heldSpecials, heldColor: s.heldColor,
+    hasSwapped: s.hasSwapped, bag: s.bag,
+    score: s.score, level: s.level, gameClock: s.gameClock,
+    comboCount: s.comboCount, lastClearWasTetris: s.lastClearWasTetris,
+  }
+}
+
+export const useGameStore = create<GameStore>()((set, get) => {
   const pieces = initPieces()
 
   return {
@@ -156,9 +188,14 @@ export const useGameStore = create<GameStore>()(persist((set, get) => {
     clearingBombCells: [],
     clearingLightningCells: [],
     hasPlayed: false,
-    leaderboard: loadScores(),
+    leaderboard: [0, 0, 0, 0, 0],
     remark: null,
     notifications: [],
+    lockDeadline: null,
+    lockMoves: 0,
+    lastMoveWasRotation: false,
+    showMenu: true,
+    currentMode: 'marathon',
 
     notify(text: string, color: string) {
       const id = ++notifCounter
@@ -168,7 +205,17 @@ export const useGameStore = create<GameStore>()(persist((set, get) => {
       }, NOTIF_DURATION)
     },
 
+    goToMenu() {
+      const s = get()
+      if (s.isPlaying) {
+        saveGameSnapshot(s.currentMode, extractSaveData(s))
+      }
+      set({ showMenu: true, isPlaying: false, isPaused: false })
+    },
+
     start() {
+      const mode = useSettingsStore.getState().mode
+      clearGameSnapshot(mode)
       const p = initPieces()
       set({
         grid: emptyGrid(),
@@ -192,25 +239,67 @@ export const useGameStore = create<GameStore>()(persist((set, get) => {
         hasPlayed: true,
         remark: null,
         notifications: [],
+        lockDeadline: null,
+        lockMoves: 0,
+        lastMoveWasRotation: false,
+        showMenu: false,
+        currentMode: mode,
+        leaderboard: loadModeScores(mode),
+      })
+    },
+
+    continueGame() {
+      const mode = useSettingsStore.getState().mode
+      const saved = loadGameSnapshot(mode)
+      if (!saved) return
+      set({
+        ...saved,
+        isPlaying: true,
+        isPaused: true,
+        isHardDropping: false,
+        isClearing: false,
+        clearingRows: [],
+        clearingBombCells: [],
+        clearingLightningCells: [],
+        hasPlayed: true,
+        remark: null,
+        notifications: [],
+        lockDeadline: null,
+        lockMoves: 0,
+        lastMoveWasRotation: false,
+        showMenu: false,
+        currentMode: mode,
+        leaderboard: loadModeScores(mode),
       })
     },
 
     tick() {
-      const { isPlaying, isPaused, isClearing, grid, active, activeColor, nextShape, nextSpecials, nextColor } = get()
+      const { isPlaying, isPaused, isClearing, grid, active, activeColor, nextShape, nextSpecials, nextColor, lockDeadline, lastMoveWasRotation, currentMode } = get()
       if (!isPlaying || isPaused || isClearing) return
 
       const dropped: ActivePiece = { ...active, position: active.position + WIDTH }
       if (!collides(grid, dropped)) {
-        set({ active: dropped })
+        set({ active: dropped, lockDeadline: null, lockMoves: 0 })
         return
       }
 
+      const now = Date.now()
+      if (lockDeadline === null) {
+        set({ lockDeadline: now + LOCK_DELAY })
+        setTimeout(() => get().tick(), LOCK_DELAY + 10)
+        return
+      }
+      if (now < lockDeadline) return
+
+      // Lock the piece
       const grid2 = grid.slice()
       const cells = cellsFor(active)
       const lockColor = COLORS[activeColor]
-      for (const cellIdx of cells) {
-        grid2[cellIdx] = lockColor
-      }
+      for (const cellIdx of cells) grid2[cellIdx] = lockColor
+
+      if (sfx()) sounds.lock()
+
+      const wasTSpin = lastMoveWasRotation && isTSpin(grid2, active)
 
       let specialScore = 0
       const pendingNotifs: Array<{ text: string; color: string }> = []
@@ -225,12 +314,16 @@ export const useGameStore = create<GameStore>()(persist((set, get) => {
           }
           specialScore += BOMB_POINTS
           pendingNotifs.push({ text: 'BOOM!', color: BOMB_COLOR })
+          if (sfx()) sounds.bomb()
+          if (pfx()) bombParticles()
         }
         if (active.specials[j] === 'lightning') {
           const col = cellIdx % WIDTH
           for (let r = 0; r < VISIBLE_CELLS; r += WIDTH) lightningCells.push(r + col)
           specialScore += LIGHTNING_POINTS
           pendingNotifs.push({ text: 'ZAP!', color: LIGHTNING_COLOR })
+          if (sfx()) sounds.lightning()
+          if (pfx()) lightningParticles()
         }
       })
 
@@ -245,14 +338,24 @@ export const useGameStore = create<GameStore>()(persist((set, get) => {
           const s = get()
           if (!s.isPlaying) return
 
+          const oldLevel = s.level
           let score = s.score + specialScore + linePoints
           const combo = anythingCleared ? s.comboCount + 1 : 0
 
           for (const n of pendingNotifs) s.notify(n.text, n.color)
 
-          if (linesCleared > 0) {
+          if (wasTSpin) {
+            const tScore = TSPIN_SCORES[Math.min(linesCleared, 3)]
+            score += tScore
+            const suffix = linesCleared > 0 ? ` ${['', 'SINGLE', 'DOUBLE', 'TRIPLE'][linesCleared]}` : ''
+            s.notify(`T-SPIN${suffix}!`, '#a78bfa')
+            if (sfx()) sounds.tspin()
+            if (pfx()) tSpinParticles()
+          } else if (linesCleared > 0) {
             const labels = ['', 'SINGLE', 'DOUBLE', 'TRIPLE', 'TETRIS!']
             s.notify(labels[linesCleared], '#f8fafc')
+            if (sfx()) sounds.clear(linesCleared)
+            if (pfx()) lineClearParticles(linesCleared)
           }
 
           if (sameColorCount > 0) {
@@ -283,15 +386,19 @@ export const useGameStore = create<GameStore>()(persist((set, get) => {
           const level = levelFor(score)
           const { shape: newNext, newBag } = drawFromBag(s.bag)
 
+          if (level > oldLevel && sfx()) sounds.levelUp()
+
           const next = spawn(nextShape, nextSpecials)
           if (collides(gridFinal, next)) {
+            clearGameSnapshot(currentMode)
             set({
               grid: gridFinal, score, level, gameClock,
               isPlaying: false, isClearing: false, clearingRows: [],
               clearingBombCells: [], clearingLightningCells: [],
-              leaderboard: saveScore(score),
+              leaderboard: saveModeScore(score, currentMode),
               remark: REMARKS[Math.floor(Math.random() * REMARKS.length)],
               comboCount: 0,
+              lockDeadline: null, lockMoves: 0, lastMoveWasRotation: false,
             })
             return
           }
@@ -309,6 +416,7 @@ export const useGameStore = create<GameStore>()(persist((set, get) => {
             hasSwapped: false,
             comboCount: combo,
             lastClearWasTetris: anythingCleared ? linesCleared === 4 : s.lastClearWasTetris,
+            lockDeadline: null, lockMoves: 0, lastMoveWasRotation: false,
           })
         }
 
@@ -319,7 +427,7 @@ export const useGameStore = create<GameStore>()(persist((set, get) => {
             if (!s.isPlaying) return
             const sameColorCount = countSameColorRows(s.grid, fullRows)
             const grid3 = removeFullRows(s.grid)
-            finishLock(grid3, clearScore(linesCleared), sameColorCount)
+            finishLock(grid3, wasTSpin ? 0 : clearScore(linesCleared), sameColorCount)
           }, CLEAR_DELAY)
           return
         }
@@ -345,43 +453,88 @@ export const useGameStore = create<GameStore>()(persist((set, get) => {
     },
 
     moveLeft() {
-      const { isPlaying, isPaused, isHardDropping, isClearing, grid, active } = get()
+      const { isPlaying, isPaused, isHardDropping, isClearing, grid, active, lockDeadline, lockMoves } = get()
       if (!isPlaying || isPaused || isHardDropping || isClearing) return
       const atLeftEdge = cellsFor(active).some((i) => i % WIDTH === 0)
       if (atLeftEdge) return
       const moved: ActivePiece = { ...active, position: active.position - 1 }
-      if (!collides(grid, moved)) set({ active: moved })
+      if (collides(grid, moved)) return
+      if (sfx()) sounds.move()
+      const grounded = collides(grid, { ...moved, position: moved.position + WIDTH })
+      if (grounded && lockDeadline !== null && lockMoves < MAX_LOCK_RESETS) {
+        set({ active: moved, lockDeadline: Date.now() + LOCK_DELAY, lockMoves: lockMoves + 1, lastMoveWasRotation: false })
+        setTimeout(() => get().tick(), LOCK_DELAY + 10)
+      } else if (!grounded) {
+        set({ active: moved, lockDeadline: null, lastMoveWasRotation: false })
+      } else {
+        set({ active: moved, lastMoveWasRotation: false })
+      }
     },
 
     moveRight() {
-      const { isPlaying, isPaused, isHardDropping, isClearing, grid, active } = get()
+      const { isPlaying, isPaused, isHardDropping, isClearing, grid, active, lockDeadline, lockMoves } = get()
       if (!isPlaying || isPaused || isHardDropping || isClearing) return
       const atRightEdge = cellsFor(active).some((i) => i % WIDTH === WIDTH - 1)
       if (atRightEdge) return
       const moved: ActivePiece = { ...active, position: active.position + 1 }
-      if (!collides(grid, moved)) set({ active: moved })
+      if (collides(grid, moved)) return
+      if (sfx()) sounds.move()
+      const grounded = collides(grid, { ...moved, position: moved.position + WIDTH })
+      if (grounded && lockDeadline !== null && lockMoves < MAX_LOCK_RESETS) {
+        set({ active: moved, lockDeadline: Date.now() + LOCK_DELAY, lockMoves: lockMoves + 1, lastMoveWasRotation: false })
+        setTimeout(() => get().tick(), LOCK_DELAY + 10)
+      } else if (!grounded) {
+        set({ active: moved, lockDeadline: null, lastMoveWasRotation: false })
+      } else {
+        set({ active: moved, lastMoveWasRotation: false })
+      }
     },
 
     rotate() {
-      const { isPlaying, isPaused, isHardDropping, isClearing, active, grid } = get()
+      const { isPlaying, isPaused, isHardDropping, isClearing, active, grid, lockDeadline, lockMoves } = get()
       if (!isPlaying || isPaused || isHardDropping || isClearing) return
       const rotation = (active.rotation + 1) % TETROMINOES[active.shape].length
       const offsets = TETROMINOES[active.shape][rotation]
       const position = kickIntoBounds(offsets, active.position)
       const rotated: ActivePiece = { ...active, rotation, position }
-      if (!collides(grid, rotated)) set({ active: rotated })
+      if (collides(grid, rotated)) return
+      if (sfx()) sounds.rotate()
+      const grounded = collides(grid, { ...rotated, position: rotated.position + WIDTH })
+      if (grounded && lockDeadline !== null && lockMoves < MAX_LOCK_RESETS) {
+        set({ active: rotated, lockDeadline: Date.now() + LOCK_DELAY, lockMoves: lockMoves + 1, lastMoveWasRotation: true })
+        setTimeout(() => get().tick(), LOCK_DELAY + 10)
+      } else if (!grounded) {
+        set({ active: rotated, lockDeadline: null, lastMoveWasRotation: true })
+      } else {
+        set({ active: rotated, lastMoveWasRotation: true })
+      }
+    },
+
+    softDrop() {
+      const { isPlaying, isPaused, isHardDropping, isClearing, grid, active } = get()
+      if (!isPlaying || isPaused || isHardDropping || isClearing) return
+      const dropped: ActivePiece = { ...active, position: active.position + WIDTH }
+      if (!collides(grid, dropped)) {
+        set(s => ({ active: dropped, score: s.score + 1, lockDeadline: null, lockMoves: 0, lastMoveWasRotation: false }))
+      }
     },
 
     hardDrop() {
-      const { isPlaying, isPaused, isHardDropping, isClearing } = get()
+      const { isPlaying, isPaused, isHardDropping, isClearing, active, grid } = get()
       if (!isPlaying || isPaused || isHardDropping || isClearing) return
+
+      const landingPos = ghostPosition(grid, active)
+      const dropDist = (landingPos - active.position) / WIDTH
+
       set({ isHardDropping: true })
+      if (sfx()) sounds.drop()
 
       const animate = () => {
-        const { active, grid, isPlaying: still } = get()
+        const { active: cur, grid: g, isPlaying: still } = get()
         if (!still) return
-        const next: ActivePiece = { ...active, position: active.position + WIDTH }
-        if (collides(grid, next)) {
+        const next: ActivePiece = { ...cur, position: cur.position + WIDTH }
+        if (collides(g, next)) {
+          set(s => ({ score: s.score + dropDist * 2, lockDeadline: 1 }))
           get().tick()
           set({ isHardDropping: false })
           return
@@ -416,6 +569,7 @@ export const useGameStore = create<GameStore>()(persist((set, get) => {
           nextSpecials: randomSpecials(),
           nextColor: randomColorIndex(),
           hasSwapped: true,
+          lockDeadline: null, lockMoves: 0, lastMoveWasRotation: false,
         })
       } else {
         set({
@@ -425,14 +579,16 @@ export const useGameStore = create<GameStore>()(persist((set, get) => {
           active: spawn(heldShape, heldSpecials),
           activeColor: heldColor,
           hasSwapped: true,
+          lockDeadline: null, lockMoves: 0, lastMoveWasRotation: false,
         })
       }
     },
   }
-}, {
-  name: 'tetris-session',
-  partialize: ({ isHardDropping, isClearing, clearingRows, clearingBombCells, clearingLightningCells, notifications, ...rest }) => ({
-    ...rest,
-    isPaused: true,
-  }),
-}))
+})
+
+// Auto-save game state per mode
+useGameStore.subscribe((state) => {
+  if (state.isPlaying && !state.showMenu && !state.isClearing && !state.isHardDropping) {
+    saveGameSnapshot(state.currentMode, extractSaveData(state))
+  }
+})

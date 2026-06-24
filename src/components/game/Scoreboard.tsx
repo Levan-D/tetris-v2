@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useGameStore } from '../store/gameStore'
-import Button from './Button'
+import { useGameStore } from '../../store/gameStore'
+import { Button } from '../buttons'
 
 const CONFIRM_TIMEOUT = 2000
 
@@ -12,6 +12,7 @@ export default function Scoreboard() {
   const hasPlayed = useGameStore((s) => s.hasPlayed)
   const start = useGameStore((s) => s.start)
   const togglePause = useGameStore((s) => s.togglePause)
+  const goToMenu = useGameStore((s) => s.goToMenu)
 
   const [confirmRestart, setConfirmRestart] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout>>(null)
@@ -47,36 +48,31 @@ export default function Scoreboard() {
 
       <div className="mt-lg w-full">
         {isPlaying ? (
-          <div className="flex gap-xxs">
-            <button
-              type="button"
-              onClick={togglePause}
-              className="cursor-pointer flex-1 bg-action text-ink border-game border-frame rounded-game-lg h-btn-h text-game-md px-xs transition-colors hover:bg-action-hover active:bg-action-press"
-            >
-              {isPaused ? 'PLAY' : 'PAUSE'}
-            </button>
-            <button
-              type="button"
-              onClick={handleRestart}
-              className={`cursor-pointer border-game border-frame rounded-game-lg h-btn-h w-btn-h flex items-center justify-center transition-colors ${
-                confirmRestart
-                  ? 'bg-red-500 text-ink animate-pulse'
-                  : 'bg-surface text-dim hover:text-ink'
-              }`}
-              title={confirmRestart ? 'Click again to restart' : 'Restart'}
-            >
-              <svg viewBox="0 0 24 24" className="h-1/2 w-1/2" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 4v6h6" />
-                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-              </svg>
-            </button>
-          </div>
+          <Button size="md" onClick={togglePause} className="w-full">
+            {isPaused ? 'PLAY' : 'PAUSE'}
+          </Button>
         ) : (
           <Button onClick={start} className="w-full">
             {hasPlayed ? 'AGAIN' : 'START'}
           </Button>
         )}
       </div>
+
+      {isPlaying && (
+        <div className="flex flex-col items-center w-full gap-xxs mt-xs">
+          <Button
+            variant="tertiary"
+            onClick={handleRestart}
+            className={`w-full text-center ${confirmRestart ? 'animate-pulse' : ''}`}
+            style={confirmRestart ? { color: '#f87171' } : undefined}
+          >
+            {confirmRestart ? 'CONFIRM?' : 'RESTART'}
+          </Button>
+          <Button variant="tertiary" onClick={goToMenu} className="w-full text-center">
+            MENU
+          </Button>
+        </div>
+      )}
     </>
   )
 }

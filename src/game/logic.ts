@@ -78,6 +78,16 @@ export function clockFor(score: number): number {
   return 1000
 }
 
+export function isTSpin(grid: Cell[], piece: ActivePiece): boolean {
+  if (piece.shape !== 2) return false
+  const center = piece.position + WIDTH + 1
+  const corners = [
+    center - WIDTH - 1, center - WIDTH + 1,
+    center + WIDTH - 1, center + WIDTH + 1,
+  ]
+  return corners.filter(c => c < 0 || c >= CELL_COUNT || grid[c] !== null).length >= 3
+}
+
 export function applyGravity(grid: Cell[]): Cell[] {
   const g = grid.slice()
   const rows = VISIBLE_CELLS / WIDTH
@@ -116,22 +126,3 @@ export function levelFor(score: number): number {
   return 1
 }
 
-const STORAGE_KEY = 'tetrisScores'
-
-export function loadScores(): number[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return [0, 0, 0, 0, 0]
-    const parsed = JSON.parse(raw) as unknown
-    if (Array.isArray(parsed)) return parsed.slice(0, 5).map(Number)
-    return [0, 0, 0, 0, 0]
-  } catch {
-    return [0, 0, 0, 0, 0]
-  }
-}
-
-export function saveScore(score: number): number[] {
-  const top = [...loadScores(), score].sort((a, b) => b - a).slice(0, 5)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(top))
-  return top
-}

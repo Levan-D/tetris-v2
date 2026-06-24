@@ -37,6 +37,8 @@
   --spacing-board-w: calc(var(--spacing-cell) * 10);
   --spacing-board-h: calc(var(--spacing-cell) * 20);
   --spacing-btn-h: calc(var(--spacing-cell) * 3);
+  --spacing-btn-h-md: calc(var(--spacing-cell) * 2.4);
+  --spacing-btn-h-sm: calc(var(--spacing-cell) * 1.5);
   --spacing-info: calc(var(--spacing-cell) * 1.5);
   --spacing-modal: calc(var(--spacing-cell) * 16);
   --spacing-modal-lg: calc(var(--spacing-cell) * 18);
@@ -112,6 +114,10 @@
 
 :root {
   --text-lg: calc(var(--spacing-cell) * 0.85);
+}
+
+button {
+  cursor: pointer;
 }
 
 html,

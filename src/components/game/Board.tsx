@@ -1,7 +1,8 @@
-import { BOMB_COLOR, COLORS, LIGHTNING_COLOR, VISIBLE_CELLS, WIDTH } from '../game/constants'
-import type { Special } from '../game/types'
-import { cellsFor, ghostPosition } from '../game/logic'
-import { useGameStore } from '../store/gameStore'
+import { BOMB_COLOR, COLORS, LIGHTNING_COLOR, VISIBLE_CELLS, WIDTH } from '../../game/constants'
+import type { Special } from '../../game/types'
+import { cellsFor, ghostPosition } from '../../game/logic'
+import { useGameStore } from '../../store/gameStore'
+import { useSettingsStore } from '../../store/settingsStore'
 
 function specialColor(colorIndex: number, special: Special): string {
   if (special === 'bomb') return BOMB_COLOR
@@ -19,6 +20,7 @@ export default function Board() {
   const clearingBombCells = useGameStore((s) => s.clearingBombCells)
   const clearingLightningCells = useGameStore((s) => s.clearingLightningCells)
   const notifications = useGameStore((s) => s.notifications)
+  const ghostEnabled = useSettingsStore((s) => s.ghostEnabled)
 
   const clearingRowSet = new Set(clearingRows)
   const bombClearSet = new Set(clearingBombCells)
@@ -35,7 +37,7 @@ export default function Board() {
   }
 
   const ghostCellMap = new Map<number, string>()
-  if (isPlaying && !isPaused) {
+  if (isPlaying && !isPaused && ghostEnabled) {
     const gPos = ghostPosition(grid, active)
     if (gPos !== active.position) {
       cellsFor({ ...active, position: gPos }).forEach((cellIdx, j) => {

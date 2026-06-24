@@ -4,8 +4,8 @@ import {
   LIGHTNING_COLOR,
   PREVIEW_WIDTH,
   UP_NEXT,
-} from "../game/constants"
-import type { Special } from "../game/types"
+} from "../../game/constants"
+import type { Special } from "../../game/types"
 
 interface PiecePreviewProps {
   label: string
