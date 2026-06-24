@@ -1,31 +1,29 @@
-import Board from './components/Board'
-import GameOverMenu from './components/GameOverMenu'
-import NextPiece from './components/NextPiece'
-import Scoreboard from './components/Scoreboard'
-import { useGameLoop } from './hooks/useGameLoop'
-import { useKeyboard } from './hooks/useKeyboard'
+import Board from "./components/Board"
+import GameOverMenu from "./components/GameOverMenu"
+import HoldPiece from "./components/HoldPiece"
+import NextPiece from "./components/NextPiece"
+import RulesInfo from "./components/RulesInfo"
+import Scoreboard from "./components/Scoreboard"
+import { useGameLoop } from "./hooks/useGameLoop"
+import { useKeyboard } from "./hooks/useKeyboard"
 
 export default function App() {
   useGameLoop()
   useKeyboard()
 
   return (
-    <div className="flex h-screen items-center justify-center bg-[#101216] font-pixel">
-      <div
-        className="relative flex items-start bg-[#222831]"
-        style={{
-          padding: 'calc(var(--cell) * 1.2)',
-          border: 'calc(var(--cell) * 0.15) solid black',
-        }}
-      >
+    <div className="flex h-screen select-none items-center justify-center bg-canvas font-pixel">
+      <div className="relative flex items-start bg-shell  p-pad border-game border-frame-dark rounded-game-lg">
+        <div className="flex flex-col items-center w-col mr-lg">
+          <HoldPiece />
+        </div>
+
         <Board />
 
-        <div
-          className="flex flex-col items-center"
-          style={{ marginLeft: 'calc(var(--cell) * 3)' }}
-        >
+        <div className="flex flex-col items-center w-col ml-lg">
           <NextPiece />
           <Scoreboard />
+          <RulesInfo />
         </div>
 
         <GameOverMenu />

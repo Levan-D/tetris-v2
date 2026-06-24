@@ -13,15 +13,26 @@ export const CELL_COUNT = WIDTH * 21
 /** Sentinel stored in the hidden floor cells — blocks movement, never drawn. */
 export const FLOOR = 'floor'
 
-/** One pastel colour per tetromino, indexed by shape. */
-export const COLORS = ['#9ADCFF', '#FFF89A', '#FFBF86', '#FF8AAE', '#C1F4C5']
+/** Tailwind 300s — one per tetromino, indexed by shape. */
+export const COLORS = [
+  '#7dd3fc', // L — sky-300
+  '#fcd34d', // Z — amber-300
+  '#fdba74', // T — orange-300
+  '#f9a8d4', // O — pink-300
+  '#6ee7b7', // I — emerald-300
+  '#c4b5fd', // J — violet-300
+  '#fda4af', // S — rose-300
+]
+
+export const BOMB_COLOR = '#ef4444'
+export const LIGHTNING_COLOR = '#eab308'
 
 const w = WIDTH
 
 /**
- * The five tetrominoes this game uses — L, Z, T, O, I (no J or S, faithful to
- * the original). Each shape has four rotation states; each state lists the four
- * cell offsets from the piece's anchor position.
+ * All seven standard tetrominoes — L, Z, T, O, I, J, S. Each shape has four
+ * rotation states; each state lists the four cell offsets from the piece's
+ * anchor position.
  */
 export const TETROMINOES: number[][][] = [
   // L
@@ -59,6 +70,20 @@ export const TETROMINOES: number[][][] = [
     [1, w + 1, w * 2 + 1, w * 3 + 1],
     [w, w + 1, w + 2, w + 3],
   ],
+  // J (mirror of L)
+  [
+    [1, w + 1, w * 2 + 1, 0],
+    [w, w + 1, w + 2, w * 2],
+    [1, w + 1, w * 2 + 1, w * 2 + 2],
+    [w + 2, w * 2, w * 2 + 1, w * 2 + 2],
+  ],
+  // S (mirror of Z)
+  [
+    [1, w, w + 1, w * 2],
+    [w, w + 1, w * 2 + 1, w * 2 + 2],
+    [1, w, w + 1, w * 2],
+    [w, w + 1, w * 2 + 1, w * 2 + 2],
+  ],
 ]
 
 /** Width of the 4x4 "up next" preview grid. */
@@ -73,6 +98,8 @@ export const UP_NEXT: number[][] = [
   [1, d, d + 1, d + 2], // T
   [0, 1, d, d + 1], // O
   [1, d + 1, d * 2 + 1, d * 3 + 1], // I
+  [1, d + 1, d * 2 + 1, 0], // J
+  [1, d, d + 1, d * 2], // S
 ]
 
 /** Snarky game-over messages, picked at random. Original spelling preserved. */
