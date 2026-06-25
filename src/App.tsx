@@ -3,14 +3,16 @@ import { MainMenu } from "./components/mainMenu"
 import { useAutoPause } from "./hooks/useAutoPause"
 import { useGameLoop } from "./hooks/useGameLoop"
 import { useKeyboard } from "./hooks/useKeyboard"
+import { useModeTimer } from "./hooks/useModeTimer"
 
 export default function App() {
   useGameLoop()
   useKeyboard()
   useAutoPause()
+  useModeTimer()
 
   return (
-    <div className="flex h-screen select-none items-center justify-center bg-canvas font-pixel">
+    <div className="flex h-screen items-center justify-center bg-canvas">
       <Background />
       <div className="relative flex items-start bg-shell  p-pad border-game border-frame-dark rounded-game-lg">
         <div className="flex flex-col items-center w-col mr-lg">

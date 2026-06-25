@@ -11,6 +11,7 @@
   --color-surface-2: var(--color-slate-600);
   --color-frame: var(--color-slate-500);
   --color-frame-light: var(--color-slate-400);
+  /* Text: ink = primary, dim = secondary/muted */
   --color-dim: var(--color-slate-400);
   --color-ink: var(--color-slate-50);
 
@@ -32,6 +33,8 @@
 
   /* Element sizes */
   --spacing-col: calc(var(--spacing-cell) * 7);
+  --spacing-menu-col: calc(var(--spacing-cell) * 12);
+  --spacing-num: calc(var(--spacing-cell) * 2);
   --spacing-preview: calc(var(--spacing-cell) * 6);
   --spacing-preview-cell: calc(var(--spacing-cell) * 1.5);
   --spacing-board-w: calc(var(--spacing-cell) * 10);
@@ -54,8 +57,7 @@
 
   /* Animations */
   --animate-line-clear: line-clear 250ms ease-in-out;
-  --animate-bomb-clear: bomb-clear 250ms ease-in-out;
-  --animate-lightning-clear: lightning-clear 250ms ease-in-out;
+  --animate-special-clear: special-clear 250ms ease-in-out;
   --animate-bonus-popup: bonus-popup 1500ms ease-out forwards;
 }
 
@@ -73,6 +75,23 @@
 }
 @utility text-game-xl {
   font-size: calc(var(--spacing-cell) * 1.2);
+}
+
+/* Relaxed line-height for multi-line body text (rules, remarks). */
+@utility leading-game {
+  line-height: calc(var(--spacing-cell) * 0.85);
+}
+
+/* Thick border (e.g. active mode selector). Uses rem because border-width
+   does not accept the viewport-min() cell calc (it falls back to 1px). */
+@utility border-thick {
+  border-width: 0.25rem;
+}
+
+/* Modal panel max height. Named to avoid colliding with the `max-h-*`
+   namespace, which would otherwise resolve `max-h-modal` to --spacing-modal. */
+@utility modal-h {
+  max-height: 90dvh;
 }
 
 @utility scrollbar-game {
@@ -95,13 +114,9 @@
   50% { background-color: transparent; }
 }
 
-@keyframes bomb-clear {
-  0%, 100% { background-color: #ef4444; }
-  50% { background-color: white; }
-}
-
-@keyframes lightning-clear {
-  0%, 100% { background-color: #eab308; }
+/* Generic power-up clear flash — color supplied per-cell via --flash-color. */
+@keyframes special-clear {
+  0%, 100% { background-color: var(--flash-color, #ef4444); }
   50% { background-color: white; }
 }
 
@@ -110,10 +125,6 @@
   15% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
   70% { opacity: 1; transform: translateX(-50%) translateY(-0.3em); }
   100% { opacity: 0; transform: translateX(-50%) translateY(-1.5em) scale(0.9); }
-}
-
-:root {
-  --text-lg: calc(var(--spacing-cell) * 0.85);
 }
 
 button {
@@ -130,4 +141,6 @@ body,
 body {
   margin: 0;
   padding: 0;
+  font-family: var(--font-pixel);
+  user-select: none;
 }

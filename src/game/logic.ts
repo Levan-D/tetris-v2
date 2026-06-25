@@ -1,5 +1,6 @@
-import { CELL_COUNT, COLORS, TETROMINOES, VISIBLE_CELLS, WIDTH, FLOOR } from './constants'
-import type { ActivePiece, Cell, Special } from './types'
+import { CELL_COUNT, COLORS, GARBAGE, TETROMINOES, VISIBLE_CELLS, WIDTH, FLOOR } from './constants'
+import type { ActivePiece, Cell } from './types'
+import type { GameMode } from '../store/settingsStore'
 
 export function emptyGrid(): Cell[] {
   const grid: Cell[] = new Array(CELL_COUNT).fill(null)
@@ -25,17 +26,6 @@ export function randomColorIndex(): number {
   return Math.floor(Math.random() * COLORS.length)
 }
 
-export function randomSpecials(): Special[] {
-  const specials: Special[] = [null, null, null, null]
-  const roll = Math.random()
-  if (roll < 0.08) {
-    specials[Math.floor(Math.random() * 4)] = 'bomb'
-  } else if (roll < 0.14) {
-    specials[Math.floor(Math.random() * 4)] = 'lightning'
-  }
-  return specials
-}
-
 export function cellsFor(piece: ActivePiece): number[] {
   return TETROMINOES[piece.shape][piece.rotation].map((offset) => piece.position + offset)
 }
@@ -55,6 +45,75 @@ export function kickIntoBounds(offsets: number[], position: number, anchor = pos
   return position
 }
 
+/** All scoring values in one place. */
+export const SCORE = {
+  SAME_COLOR_BONUS: 200,
+  COMBO_BONUS: 50,
+  PERFECT_CLEAR: 1000,
+  BOMB: 50,
+  LIGHTNING: 50,
+  /** T-spin payout indexed by lines cleared (0..3). */
+  TSPIN: [400, 800, 1200, 1600],
+  SOFT_DROP_PER_CELL: 1,
+  HARD_DROP_PER_CELL: 2,
+}
+
+// --- game modes -------------------------------------------------------------
+
+/** Sprint: clear this many lines as fast as possible. */
+export const SPRINT_LINES = 40
+/** Ultra: score as high as possible within this window. */
+export const ULTRA_MS = 120000
+
+/** How each mode is scored on its leaderboard. */
+export const MODE_RULES: Record<GameMode, { metric: 'score' | 'time'; better: 'high' | 'low' }> = {
+  marathon: { metric: 'score', better: 'high' },
+  sprint: { metric: 'time', better: 'low' },
+  ultra: { metric: 'score', better: 'high' },
+  survival: { metric: 'time', better: 'high' },
+}
+
+/** Format milliseconds as m:ss. */
+export function formatTime(ms: number): string {
+  const t = Math.max(0, Math.floor(ms / 1000))
+  return `${Math.floor(t / 60)}:${(t % 60).toString().padStart(2, '0')}`
+}
+
+/** Survival: ms between garbage rows, shrinking as the run goes on. */
+export function survivalInterval(elapsedMs: number): number {
+  return Math.max(1500, 5000 - Math.floor(elapsedMs / 20000) * 700)
+}
+
+/** Survival: gravity (ms per drop), speeding up over time. */
+export function survivalClock(elapsedMs: number): number {
+  return Math.max(120, 800 - Math.floor(elapsedMs / 15000) * 100)
+}
+
+/** A single garbage row: solid except for 1-4 random holes. */
+function garbageRow(): Cell[] {
+  const row: Cell[] = new Array(WIDTH).fill(GARBAGE)
+  const holes = 1 + Math.floor(Math.random() * 4) // 1..4
+  const cols = Array.from({ length: WIDTH }, (_, i) => i)
+  for (let i = cols.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[cols[i], cols[j]] = [cols[j], cols[i]]
+  }
+  for (let k = 0; k < holes; k++) row[cols[k]] = null
+  return row
+}
+
+/**
+ * Pushes one garbage row in at the bottom of the visible field, shifting the
+ * stack up by a row (the top row is pushed off).
+ */
+export function addGarbageRow(grid: Cell[]): Cell[] {
+  const row = garbageRow()
+  const visible = grid.slice(0, VISIBLE_CELLS)
+  const floor = grid.slice(VISIBLE_CELLS)
+  const shifted = [...visible.slice(WIDTH), ...row]
+  return [...shifted, ...floor]
+}
+
 export function clearScore(lines: number): number {
   switch (lines) {
     case 1: return 100
@@ -63,6 +122,66 @@ export function clearScore(lines: number): number {
     case 4: return 800
     default: return 0
   }
+}
+
+/** Indices of every full row in the visible grid. */
+export function findFullRows(grid: Cell[]): number[] {
+  const rows: number[] = []
+  for (let row = 0; row < VISIBLE_CELLS; row += WIDTH) {
+    let full = true
+    for (let c = 0; c < WIDTH; c++) {
+      if (grid[row + c] === null) { full = false; break }
+    }
+    if (full) rows.push(row)
+  }
+  return rows
+}
+
+/** Returns a new grid with all full rows removed and empty rows pushed in on top. */
+export function removeFullRows(grid: Cell[]): Cell[] {
+  const g = grid.slice()
+  for (let row = 0; row < VISIBLE_CELLS; row += WIDTH) {
+    let full = true
+    for (let c = 0; c < WIDTH; c++) {
+      if (g[row + c] === null) { full = false; break }
+    }
+    if (full) {
+      g.splice(row, WIDTH)
+      g.unshift(...new Array<Cell>(WIDTH).fill(null))
+    }
+  }
+  return g
+}
+
+/** Removes specific visible rows (by rowStart index), dropping everything above. */
+export function removeRows(grid: Cell[], rowStarts: number[]): Cell[] {
+  const g = grid.slice()
+  for (const row of [...new Set(rowStarts)].sort((a, b) => b - a)) {
+    g.splice(row, WIDTH)
+    g.unshift(...new Array<Cell>(WIDTH).fill(null))
+  }
+  return g
+}
+
+/** Sets the given visible cells to empty (no collapse). */
+export function clearCells(grid: Cell[], cells: number[]): Cell[] {
+  const g = grid.slice()
+  for (const i of cells) if (i >= 0 && i < VISIBLE_CELLS) g[i] = null
+  return g
+}
+
+/** How many of the given full rows are a single color (mono-color bonus). */
+export function countSameColorRows(grid: Cell[], fullRows: number[]): number {
+  let count = 0
+  for (const row of fullRows) {
+    const color = grid[row]
+    let same = true
+    for (let c = 1; c < WIDTH; c++) {
+      if (grid[row + c] !== color) { same = false; break }
+    }
+    if (same) count++
+  }
+  return count
 }
 
 export function clockFor(score: number): number {

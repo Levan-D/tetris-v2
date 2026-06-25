@@ -8,11 +8,9 @@ export default function TogglePill({ label, on, onClick }: TogglePillProps) {
   return (
     <button
       onClick={onClick}
-      className="px-sm py-xxs rounded-game-md text-game-xs transition-colors"
-      style={{
-        backgroundColor: on ? 'var(--color-action)' : 'var(--color-surface)',
-        color: on ? 'white' : 'var(--color-dim)',
-      }}
+      className={`px-sm py-xxs rounded-game-md text-game-xs transition-colors ${
+        on ? 'bg-action text-ink' : 'bg-surface text-dim'
+      }`}
     >
       {label}
     </button>

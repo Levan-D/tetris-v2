@@ -1,12 +1,37 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
+import { NOTE_COLORS } from '../../game/constants'
+import { formatTime, SPRINT_LINES, ULTRA_MS } from '../../game/logic'
 import { useGameStore } from '../../store/gameStore'
+import { useConfirm } from '../../hooks/useConfirm'
 import { Button } from '../buttons'
 
-const CONFIRM_TIMEOUT = 2000
-
-export default function Scoreboard() {
+function Stats() {
+  const mode = useGameStore((s) => s.currentMode)
   const score = useGameStore((s) => s.score)
   const level = useGameStore((s) => s.level)
+  const linesCleared = useGameStore((s) => s.linesCleared)
+  const elapsedMs = useGameStore((s) => s.elapsedMs)
+
+  const scoreText = `SCORE:${String(score).padStart(2, '0')}`
+  // First row is the prominent stat; time-ranked modes drop SCORE entirely
+  const rows =
+    mode === 'sprint' ? [`TIME:${formatTime(elapsedMs)}`, `LINES:${linesCleared}/${SPRINT_LINES}`] :
+    mode === 'survival' ? [`TIME:${formatTime(elapsedMs)}`] :
+    mode === 'ultra' ? [scoreText, `TIME:${formatTime(ULTRA_MS - elapsedMs)}`] :
+    [scoreText, `LVL:${level}`]
+
+  return (
+    <>
+      {rows.map((r, i) => (
+        <div key={i} className={i === 0 ? 'text-ink mt-lg text-game-lg' : 'text-dim mt-sm text-game-md'}>
+          {r}
+        </div>
+      ))}
+    </>
+  )
+}
+
+export default function Scoreboard() {
   const isPlaying = useGameStore((s) => s.isPlaying)
   const isPaused = useGameStore((s) => s.isPaused)
   const hasPlayed = useGameStore((s) => s.hasPlayed)
@@ -14,37 +39,15 @@ export default function Scoreboard() {
   const togglePause = useGameStore((s) => s.togglePause)
   const goToMenu = useGameStore((s) => s.goToMenu)
 
-  const [confirmRestart, setConfirmRestart] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>(null)
+  const { confirming: confirmRestart, trigger: handleRestart, reset } = useConfirm(start)
 
   useEffect(() => {
-    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [])
-
-  useEffect(() => {
-    if (!isPlaying) setConfirmRestart(false)
-  }, [isPlaying])
-
-  const handleRestart = useCallback(() => {
-    if (confirmRestart) {
-      if (timerRef.current) clearTimeout(timerRef.current)
-      setConfirmRestart(false)
-      start()
-    } else {
-      setConfirmRestart(true)
-      timerRef.current = setTimeout(() => setConfirmRestart(false), CONFIRM_TIMEOUT)
-    }
-  }, [confirmRestart, start])
+    if (!isPlaying) reset()
+  }, [isPlaying, reset])
 
   return (
     <>
-      <div className="text-ink mt-lg text-game-lg">
-        SCORE:{String(score).padStart(2, '0')}
-      </div>
-
-      <div className="text-dim mt-sm text-game-md">
-        LVL:{level}
-      </div>
+      <Stats />
 
       <div className="mt-lg w-full">
         {isPlaying ? (
@@ -64,7 +67,7 @@ export default function Scoreboard() {
             variant="tertiary"
             onClick={handleRestart}
             className={`w-full text-center ${confirmRestart ? 'animate-pulse' : ''}`}
-            style={confirmRestart ? { color: '#f87171' } : undefined}
+            style={confirmRestart ? { color: NOTE_COLORS.danger } : undefined}
           >
             {confirmRestart ? 'CONFIRM?' : 'RESTART'}
           </Button>

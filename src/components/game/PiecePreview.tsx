@@ -1,11 +1,11 @@
 import {
-  BOMB_COLOR,
   COLORS,
-  LIGHTNING_COLOR,
   PREVIEW_WIDTH,
   UP_NEXT,
 } from "../../game/constants"
 import type { Special } from "../../game/types"
+import { getPowerup } from "../../game/powerups"
+import Pip from "./Pip"
 
 interface PiecePreviewProps {
   label: string
@@ -28,12 +28,7 @@ export default function PiecePreview({
   if (shape !== null && displayColor) {
     UP_NEXT[shape].forEach((pos, j) => {
       const sp = specials?.[j] ?? null
-      const c =
-        sp === "bomb"
-          ? BOMB_COLOR
-          : sp === "lightning"
-            ? LIGHTNING_COLOR
-            : displayColor
+      const c = sp ? getPowerup(sp).color : displayColor
       cellMap.set(pos, { color: c, special: sp })
     })
   }
@@ -54,24 +49,14 @@ export default function PiecePreview({
               return <div key={i} className="w-preview-cell h-preview-cell" />
 
             if (info.special) {
+              const def = getPowerup(info.special)
               return (
                 <div
                   key={i}
                   className="w-preview-cell h-preview-cell rounded-game-sm border-thin border-surface flex items-center justify-center"
                   style={{ backgroundColor: info.color }}
                 >
-                  <div
-                    style={{
-                      width: info.special === "bomb" ? "40%" : "15%",
-                      height: info.special === "bomb" ? "40%" : "65%",
-                      backgroundColor:
-                        info.special === "bomb" ? "#fecaca" : "#fef9c3",
-                      borderRadius:
-                        info.special === "bomb"
-                          ? "50%"
-                          : "var(--radius-game-sm)",
-                    }}
-                  />
+                  <Pip kind={def.pip} color={def.pipColor} text={def.pipText} />
                 </div>
               )
             }

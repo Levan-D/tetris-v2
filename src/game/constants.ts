@@ -13,6 +13,12 @@ export const CELL_COUNT = WIDTH * 21
 /** Sentinel stored in the hidden floor cells — blocks movement, never drawn. */
 export const FLOOR = 'floor'
 
+/** Sentinel for rising garbage cells in Survival mode. */
+export const GARBAGE = 'garbage'
+
+/** Render color for garbage cells. */
+export const GARBAGE_COLOR = '#475569'
+
 /** Tailwind 300s — one per tetromino, indexed by shape. */
 export const COLORS = [
   '#7dd3fc', // L — sky-300
@@ -27,34 +33,57 @@ export const COLORS = [
 export const BOMB_COLOR = '#ef4444'
 export const LIGHTNING_COLOR = '#eab308'
 
+/** Colors for floating score/event notifications. */
+export const NOTE_COLORS = {
+  line: '#f8fafc',
+  tspin: '#a78bfa',
+  mono: '#fcd34d',
+  combo: '#6ee7b7',
+  b2b: '#c4b5fd',
+  perfect: '#fcd34d',
+  danger: '#f87171',
+}
+
+/** Inner "pip" colors drawn on bomb / lightning cells. */
+export const SPECIAL_PIXEL = {
+  bomb: '#fecaca',
+  lightning: '#fef9c3',
+}
+
 const w = WIDTH
 
 /**
  * All seven standard tetrominoes — L, Z, T, O, I, J, S. Each shape has four
  * rotation states; each state lists the four cell offsets from the piece's
  * anchor position.
+ *
+ * IMPORTANT: within every shape the four offsets are kept in a *consistent
+ * block order* across all rotations — i.e. index `i` is always the same
+ * physical mino as the piece spins. This lets a per-cell special (bomb /
+ * lightning) ride along with its block through rotations instead of jumping.
+ * (O is left identical across rotations since it has no visual rotation.)
  */
 export const TETROMINOES: number[][][] = [
   // L
   [
     [1, w + 1, w * 2 + 1, 2],
-    [w, w + 1, w + 2, w * 2 + 2],
-    [1, w + 1, w * 2 + 1, w * 2],
-    [w, w * 2, w * 2 + 1, w * 2 + 2],
+    [w + 2, w + 1, w, w * 2 + 2],
+    [w * 2 + 1, w + 1, 1, w * 2],
+    [w * 2, w * 2 + 1, w * 2 + 2, w],
   ],
   // Z
   [
     [0, w, w + 1, w * 2 + 1],
-    [w + 1, w + 2, w * 2, w * 2 + 1],
-    [0, w, w + 1, w * 2 + 1],
-    [w + 1, w + 2, w * 2, w * 2 + 1],
+    [w + 2, w + 1, w * 2 + 1, w * 2],
+    [w * 2 + 1, w + 1, w, 0],
+    [w * 2, w * 2 + 1, w + 1, w + 2],
   ],
   // T
   [
     [1, w, w + 1, w + 2],
-    [1, w + 1, w + 2, w * 2 + 1],
-    [w, w + 1, w + 2, w * 2 + 1],
-    [1, w, w + 1, w * 2 + 1],
+    [w + 2, 1, w + 1, w * 2 + 1],
+    [w * 2 + 1, w + 2, w + 1, w],
+    [w, w * 2 + 1, w + 1, 1],
   ],
   // O
   [
@@ -66,23 +95,23 @@ export const TETROMINOES: number[][][] = [
   // I
   [
     [1, w + 1, w * 2 + 1, w * 3 + 1],
-    [w, w + 1, w + 2, w + 3],
-    [1, w + 1, w * 2 + 1, w * 3 + 1],
+    [w + 3, w + 2, w + 1, w],
+    [w * 3 + 1, w * 2 + 1, w + 1, 1],
     [w, w + 1, w + 2, w + 3],
   ],
   // J (mirror of L)
   [
     [1, w + 1, w * 2 + 1, 0],
     [w, w + 1, w + 2, w * 2],
-    [1, w + 1, w * 2 + 1, w * 2 + 2],
-    [w + 2, w * 2, w * 2 + 1, w * 2 + 2],
+    [w * 2 + 1, w + 1, 1, w * 2 + 2],
+    [w * 2 + 2, w * 2 + 1, w * 2, w + 2],
   ],
   // S (mirror of Z)
   [
     [1, w, w + 1, w * 2],
-    [w, w + 1, w * 2 + 1, w * 2 + 2],
-    [1, w, w + 1, w * 2],
-    [w, w + 1, w * 2 + 1, w * 2 + 2],
+    [w * 2 + 2, w + 1, w * 2 + 1, w],
+    [w * 2, w + 1, w, 1],
+    [w, w * 2 + 1, w + 1, w * 2 + 2],
   ],
 ]
 

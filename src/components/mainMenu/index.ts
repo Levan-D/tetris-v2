@@ -1,3 +1,5 @@
 export { default as MainMenu } from './MainMenu'
+export { default as ModeOption } from './ModeOption'
 export { default as SettingsModal } from './SettingsModal'
+export { default as LeaderboardsModal } from './LeaderboardsModal'
 export { default as HowToPlay } from './HowToPlay'

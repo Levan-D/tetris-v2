@@ -1,13 +1,14 @@
-import { BOMB_COLOR, COLORS, LIGHTNING_COLOR, VISIBLE_CELLS, WIDTH } from '../../game/constants'
+import { COLORS, GARBAGE, GARBAGE_COLOR, VISIBLE_CELLS, WIDTH } from '../../game/constants'
 import type { Special } from '../../game/types'
 import { cellsFor, ghostPosition } from '../../game/logic'
+import { getPowerup } from '../../game/powerups'
 import { useGameStore } from '../../store/gameStore'
 import { useSettingsStore } from '../../store/settingsStore'
+import Notifications from './Notifications'
+import Pip from './Pip'
 
-function specialColor(colorIndex: number, special: Special): string {
-  if (special === 'bomb') return BOMB_COLOR
-  if (special === 'lightning') return LIGHTNING_COLOR
-  return COLORS[colorIndex]
+function cellColor(colorIndex: number, special: Special): string {
+  return special ? getPowerup(special).color : COLORS[colorIndex]
 }
 
 export default function Board() {
@@ -17,20 +18,18 @@ export default function Board() {
   const isPlaying = useGameStore((s) => s.isPlaying)
   const isPaused = useGameStore((s) => s.isPaused)
   const clearingRows = useGameStore((s) => s.clearingRows)
-  const clearingBombCells = useGameStore((s) => s.clearingBombCells)
-  const clearingLightningCells = useGameStore((s) => s.clearingLightningCells)
-  const notifications = useGameStore((s) => s.notifications)
+  const clearingCells = useGameStore((s) => s.clearingCells)
+  const clearingColor = useGameStore((s) => s.clearingColor)
   const ghostEnabled = useSettingsStore((s) => s.ghostEnabled)
 
   const clearingRowSet = new Set(clearingRows)
-  const bombClearSet = new Set(clearingBombCells)
-  const lightningClearSet = new Set(clearingLightningCells)
+  const clearingCellSet = new Set(clearingCells)
 
   const activeCellMap = new Map<number, { color: string; special: Special }>()
   if (isPlaying) {
     cellsFor(active).forEach((cellIdx, j) => {
       activeCellMap.set(cellIdx, {
-        color: specialColor(activeColor, active.specials[j]),
+        color: cellColor(activeColor, active.specials[j]),
         special: active.specials[j],
       })
     })
@@ -41,7 +40,7 @@ export default function Board() {
     const gPos = ghostPosition(grid, active)
     if (gPos !== active.position) {
       cellsFor({ ...active, position: gPos }).forEach((cellIdx, j) => {
-        ghostCellMap.set(cellIdx, specialColor(activeColor, active.specials[j]))
+        ghostCellMap.set(cellIdx, cellColor(activeColor, active.specials[j]))
       })
     }
   }
@@ -59,28 +58,26 @@ export default function Board() {
             return <div key={i} className="w-cell h-cell rounded-game-sm bg-white animate-line-clear" />
           }
 
-          if (bombClearSet.has(i)) {
-            return <div key={i} className="w-cell h-cell rounded-game-sm animate-bomb-clear" />
-          }
-
-          if (lightningClearSet.has(i)) {
-            return <div key={i} className="w-cell h-cell rounded-game-sm animate-lightning-clear" />
+          if (clearingCellSet.has(i)) {
+            return (
+              <div
+                key={i}
+                className="w-cell h-cell rounded-game-sm animate-special-clear"
+                style={{ '--flash-color': clearingColor } as React.CSSProperties}
+              />
+            )
           }
 
           if (activeInfo) {
             if (activeInfo.special) {
+              const def = getPowerup(activeInfo.special)
               return (
                 <div
                   key={i}
                   className="w-cell h-cell rounded-game-sm border-thin border-surface flex items-center justify-center"
                   style={{ backgroundColor: activeInfo.color }}
                 >
-                  <div style={{
-                    width: activeInfo.special === 'bomb' ? '40%' : '15%',
-                    height: activeInfo.special === 'bomb' ? '40%' : '65%',
-                    backgroundColor: activeInfo.special === 'bomb' ? '#fecaca' : '#fef9c3',
-                    borderRadius: activeInfo.special === 'bomb' ? '50%' : 'var(--radius-game-sm)',
-                  }} />
+                  <Pip kind={def.pip} color={def.pipColor} text={def.pipText} />
                 </div>
               )
             }
@@ -108,7 +105,7 @@ export default function Board() {
               <div
                 key={i}
                 className="w-cell h-cell rounded-game-sm border-thin border-surface"
-                style={{ backgroundColor: grid[i]! }}
+                style={{ backgroundColor: grid[i] === GARBAGE ? GARBAGE_COLOR : grid[i]! }}
               />
             )
           }
@@ -117,23 +114,7 @@ export default function Board() {
         })}
       </div>
 
-      {notifications.length > 0 && (
-        <div className="pointer-events-none absolute inset-0">
-          {notifications.map((n, i) => (
-            <div
-              key={n.id}
-              className="absolute left-1/2 whitespace-nowrap text-game-md animate-bonus-popup"
-              style={{
-                top: `calc(35% + ${i * 1.8} * var(--spacing-cell))`,
-                color: n.color,
-                textShadow: '0 0 calc(var(--spacing-cell) * 0.4) rgba(0,0,0,0.9)',
-              }}
-            >
-              {n.text}
-            </div>
-          ))}
-        </div>
-      )}
+      <Notifications />
 
       {isPaused && (
         <div

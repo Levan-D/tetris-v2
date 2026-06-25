@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom'
+
 interface ModalProps {
   open: boolean
   onClose?: () => void
@@ -13,14 +15,15 @@ interface ModalProps {
 export default function Modal({ open, onClose, title, children, footer, width }: ModalProps) {
   if (!open) return null
 
-  return (
+  // Portal to body so the overlay covers the whole viewport, not just the shell.
+  return createPortal(
     <div
-      className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="flex flex-col bg-shell text-ink rounded-game-lg border-game border-frame-light overflow-hidden"
-        style={{ width: width ?? 'var(--spacing-modal)', maxHeight: '90vh' }}
+        className="flex flex-col bg-shell text-ink rounded-game-lg border-game border-frame-light overflow-hidden modal-h"
+        style={{ width: width ?? 'var(--spacing-modal)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
@@ -39,6 +42,7 @@ export default function Modal({ open, onClose, title, children, footer, width }:
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
